@@ -14,7 +14,6 @@ export default class App extends Component {
       playing: false
     };
 
-
     this.upload = this.upload.bind(this);
     this.newPatch = this.newPatch.bind(this);
     this.toggleAudio = this.toggleAudio.bind(this);
