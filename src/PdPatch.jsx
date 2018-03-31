@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import Draggable from 'react-draggable'
 import Pd from 'webpd';
 import {parsePatch} from './parse';
 
@@ -16,7 +17,6 @@ function sanityTestPatch() {
 
 let DAC_INDEX = 0;
 let OSC_INDEX = 1;
-
 
 const NODE_HEIGHT = 20;
 const NODE_WIDTH = 50;
@@ -56,10 +56,6 @@ export default class PdPatch extends Component {
     // Find the connection with this index
     let {source, sink} = patch.patchData.connections[idx];
 
-    console.log(patch.patchData);
-    console.log(patch.objects[source.id]);
-    console.log(patch.patchData.nodes[source.id]);
-
     let outlet = patch.objects[source.id].o(o);
     let inlet = patch.objects[sink.id].i(i);
     // Remove connection from the object
@@ -67,8 +63,14 @@ export default class PdPatch extends Component {
 
     // Remove connection from the connections list
     patch.patchData.connections.splice(idx, 1);
-    console.log(patch.patchData);
     this.forceUpdate();
+  }
+
+  /**
+   *
+   */
+  connect(from, to) {
+
   }
 
   /**
@@ -79,6 +81,13 @@ export default class PdPatch extends Component {
 
     // Delete the object, create a new one, connect it
     patch.objects[id];
+  }
+
+  moveObject(id, x, y) {
+    let {patch} = this.state;
+
+    patch.patchData.nodes[id].layout = {x, y};
+    this.forceUpdate();
   }
 
   // HACKY NONSENSE FOR TESTING
@@ -117,7 +126,8 @@ export default class PdPatch extends Component {
 
         <svg width={width} height={height}>
           {nodes.map((nodeProps, idx) =>
-            <PdNode key={nodeProps.id} {...nodeProps} 
+            <PdNode key={nodeProps.id} {...nodeProps}
+              move={(x, y) => this.moveObject(idx, x, y)} 
               updateObject={(proto, args) => this.updateObject(idx, proto, args)} />
           )}
           {connections.map(({source, sink}, idx) =>
@@ -201,29 +211,34 @@ class PdNode extends Component {
     // Switch here on proto if we need to render a different type of object
 
     return (
-      <g className="pd-node">
-        <rect x={x} y={y}
-          fill={selected ? '#' : 'transparent'}
-          onDragStart={() => console.log('drag started')}
-          onDragEnd={() => console.log('drag ended')}
-          onClick={this.select}
-          onDoubleClick={this.edit}
-          height={height} width={width} 
-          style={{stroke: '#000', fill: '#fff'}} />
-        {editing ? (
-          <foreignObject x={x} y={y}>
-            <input className="pd-node-input"
-              style={{width}}
-              onChange={this.updateText} 
-              onKeyUp={this.handleSubmit} 
-              value={nodeText} />
-          </foreignObject>
-        ) : (
-          <text className="pd-node-text"
-            onDoubleClick={this.edit} onClick={this.select}
-            x={x + padding} y={y + height - padding}>{nodeText}</text>
-        )}
-      </g>
+      <Draggable disabled={editing}
+        position={{x:0, y:0}}
+        onStop={(_, data) => this.props.move(x + data.x, y + data.y)}>
+        <g className="pd-node">
+          <rect x={x} y={y}
+            className={`pd-node-rect ${selected ? 'selected' : ''}`}
+            fill="transparent"
+            onDragStart={this.drag}
+            onDragEnd={this.move}
+            onClick={this.select}
+            onDoubleClick={this.edit}
+            height={height} width={width} 
+            style={{stroke: '#000', fill: '#fff'}} />
+          {editing ? (
+            <foreignObject x={x} y={y}>
+              <input className="pd-node-input"
+                style={{width}}
+                onChange={this.updateText} 
+                onKeyUp={this.handleSubmit} 
+                value={nodeText} />
+            </foreignObject>
+          ) : (
+            <text className="pd-node-text"
+              onDoubleClick={this.edit} onClick={this.select}
+              x={x + padding} y={y + height - padding}>{nodeText}</text>
+          )}
+        </g>
+      </Draggable>
     );
   }
 }
@@ -247,7 +262,6 @@ class PdPatchCord extends Component {
    */
   select(evt) {
     this.setState({selected: true});
-    
     window.addEventListener('click', this.deselect);
     window.addEventListener('keyup', this.delete);
     evt.stopPropagation();
