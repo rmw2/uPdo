@@ -6,7 +6,8 @@
     "pd-fileutils.parser": "^0.3.4",
     "react": "^16.3.0",
     "react-dom": "^16.3.0",
-    "react-scripts": "1.1.1"
+    "react-scripts": "1.1.1",
+    "webpd": "http://github.com/sebpiq/WebPd.git"
   },
   "scripts": {
     "start": "react-scripts start",
