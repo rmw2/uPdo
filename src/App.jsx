@@ -47,9 +47,11 @@ export default class App extends Component {
     return (
       <div id="component">
         <nav>
-          <div id="logo">u<span id="pd">Pd</span>o</div>
-          <div id="nav-buttons">
-            <button disabled={patch === null} onClick={this.toggleAudio}>{playing ? 'pause' : 'play'}</button>
+          <div className="nav-box" id="logo">u<span id="pd">Pd</span>o</div>
+          <div className="nav-box" id="nav-buttons">
+            <button disabled={patch === null} 
+              onClick={this.toggleAudio} 
+              className="nav-button">{playing ? 'pause' : 'play'}</button>
           </div>
         </nav>
         <main>
@@ -57,10 +59,13 @@ export default class App extends Component {
             <PdPatch patchString={patch} toggleAudio={this.toggleAudio} />
           ) : (
             <div id="start-buttons">
-              <input type="file" id="upload"
-                className="nav-button"
-                onChange={this.upload} />
+              <label htmlFor="upload"
+                className="load-button">upload patch
+                <input type="file" id="upload"
+                  onChange={this.upload} />
+              </label>
               <button id="new"
+                className="load-button"
                 onClick={this.newPatch}>new patch</button>
             </div>
           )}
