@@ -55,6 +55,7 @@ export default class PdPatch extends Component {
 
     // Find the connection with this index
     let {source, sink} = patch.patchData.connections[idx];
+
     console.log(patch.patchData);
     console.log(patch.objects[source.id]);
     console.log(patch.patchData.nodes[source.id]);
@@ -65,7 +66,7 @@ export default class PdPatch extends Component {
     outlet.disconnect(inlet);
 
     // Remove connection from the connections list
-    patch.patchData.connections.splice(idx);
+    patch.patchData.connections.splice(idx, 1);
     console.log(patch.patchData);
     this.forceUpdate();
   }
@@ -117,10 +118,10 @@ export default class PdPatch extends Component {
         <svg width={width} height={height}>
           {nodes.map((nodeProps, idx) =>
             <PdNode key={nodeProps.id} {...nodeProps} 
-              updateObject={(proto, args) => this.updateArgs(idx, proto, args)} />
+              updateObject={(proto, args) => this.updateObject(idx, proto, args)} />
           )}
           {connections.map(({source, sink}, idx) =>
-            <PdPatchCord key={idx/*`${source.id}${source.port}-${sink.id}${sink.port}`*/}
+            <PdPatchCord key={`${source.id}${source.port}-${sink.id}${sink.port}`}
               outlet={source.port}
               inlet={sink.port}
               from={nodes[source.id]} 
@@ -164,6 +165,7 @@ class PdNode extends Component {
 
   select() {
     console.log('selecting');
+    this.setState({selected: true});
   }
 
   edit() {
@@ -201,7 +203,7 @@ class PdNode extends Component {
     return (
       <g className="pd-node">
         <rect x={x} y={y}
-          fill={selected ? '#eee' : 'transparent'}
+          fill={selected ? '#' : 'transparent'}
           onDragStart={() => console.log('drag started')}
           onDragEnd={() => console.log('drag ended')}
           onClick={this.select}
@@ -244,28 +246,34 @@ class PdPatchCord extends Component {
    * and installing event handlers for "delete" and click
    */
   select(evt) {
-    console.log('selecting')
     this.setState({selected: true});
+    
     window.addEventListener('click', this.deselect);
     window.addEventListener('keyup', this.delete);
     evt.stopPropagation();
   }
 
   deselect(evt) {
-    console.log('deslecting')
-    console.log(evt);
     this.setState({selected: false});
-    window.removeEventListener('click', this.deselect);
-    window.removeEventListener('keyup', this.delete);
+    this.cleanUp();
   }
 
   delete(evt) {
     let {idx, outlet, inlet} = this.props;
-    console.log('deleting');
-    console.log(evt.key);
     if (evt.key == 'Backspace') {
       this.props.disconnect(idx, outlet, inlet);
-    } 
+    }
+
+    this.cleanUp();
+  }
+
+  componentWillUnmount() {
+    this.cleanUp();
+  }
+
+  cleanUp() {
+    window.removeEventListener('click', this.deselect);
+    window.removeEventListener('keyup', this.delete);
   }
 
   render() {
