@@ -21,9 +21,8 @@ export default class PdPatch extends Component {
       width: null,
       height: null
     };
-
-    Pd.start();
-
+    
+    this.props.toggleAudio();
     console.log(this.state.patch);
 	}
 

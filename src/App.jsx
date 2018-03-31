@@ -10,12 +10,14 @@ export default class App extends Component {
     super(props)
 
     this.state = {
-      patch: null
+      patch: null,
+      playing: false
     };
 
 
     this.upload = this.upload.bind(this);
     this.newPatch = this.newPatch.bind(this);
+    this.toggleAudio = this.toggleAudio.bind(this);
   }
 
   upload(event) {
@@ -31,16 +33,29 @@ export default class App extends Component {
     });
   }
 
+  toggleAudio() {
+    if (this.state.playing) {
+      Pd.stop();
+      this.setState({playing: false});
+    } else {
+      Pd.start();
+      this.setState({playing: true});
+    }
+  }
+
   render() {
-    let {patch} = this.state;
+    let {patch, playing} = this.state;
     return (
       <div id="component">
         <nav>
           <div id="logo">u<span id="pd">Pd</span>o</div>
+          <div id="nav-buttons">
+            <button disabled={patch === null} onClick={this.toggleAudio}>{playing ? 'pause' : 'play'}</button>
+          </div>
         </nav>
         <main>
           {patch ? (
-            <PdPatch patchString={patch} />
+            <PdPatch patchString={patch} toggleAudio={this.toggleAudio} />
           ) : (
             <div id="start-buttons">
               <input type="file" id="upload"
