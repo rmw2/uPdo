@@ -6,6 +6,6 @@ export default class PdPatch extends Component {
 	}
 
 	render() {
-
+    return null;
 	}
 }
