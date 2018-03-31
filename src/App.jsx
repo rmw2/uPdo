@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 
-
 import {parsePatch} from './parse';
 import PdPatch from './PdPatch';
 
@@ -26,7 +25,7 @@ export default class App extends Component {
   }
 
   newPatch() {
-
+  
   }
 
   render() {
@@ -34,9 +33,9 @@ export default class App extends Component {
     return (
       <div id="component">
         <nav>
-          <button id="upload" 
+          <input type="file" id="upload" 
             className="nav-button"
-            onClick={this.upload}>upload patch</button>
+            onClick={this.upload} />
         </nav>
         <main>
           {patch ? (
