@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 
 import Pd from 'webpd';
-import {parsePatch} from './parse';
 import PdPatch from './PdPatch';
 
 import './App.css';
@@ -21,7 +20,7 @@ export default class App extends Component {
 
   upload(event) {
     let reader = new FileReader();
-    reader.onload = () => this.setState({patch: parsePatch(reader.result)});
+    reader.onload = () => this.setState({patch: reader.result});
     reader.readAsText(event.target.files[0]);
   }
 
@@ -37,11 +36,11 @@ export default class App extends Component {
     return (
       <div id="component">
         <nav>
-
+          <div id="logo">u<span id="pd">Pd</span>o</div>
         </nav>
         <main>
           {patch ? (
-            <PdPatch patch={patch} />
+            <PdPatch patchString={patch} />
           ) : (
             <div id="start-buttons">
               <input type="file" id="upload"

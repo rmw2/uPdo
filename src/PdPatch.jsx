@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import Pd from 'webpd';
+import {parsePatch} from './parse';
 
 function sanityTestPatch() {
   Pd.start()
@@ -11,23 +12,51 @@ function sanityTestPatch() {
   osc.i(0).message([330])                       // Send frequency of [osc~] to 330Hz
 }
 
-function loadPatchString(patchString) {
-  let patch = Pd.loadPatch(patchString);            // We assume this patch has an [outlet~] object
-  let gain = Pd.getAudio().context.createGain(); // We create a web audio API GainNode
-  patch.o(0).getOutNode().connect(gain);         // Connect the output 0 of the patch to our audio node
-}
-
 export default class PdPatch extends Component {
 	constructor(props) {
     super(props);
-    console.log(420)
+
+    this.state = {
+      patch: Pd.loadPatch(props.patchString),
+      width: null,
+      height: null
+    };
+
+    Pd.start();
+
+    console.log(this.state.patch);
 	}
 
   componentDidMount() {
-    Pd.start();
+    // Set svg size
+    this.setState({
+      height: this.refs.wrapper.clientHeight,
+      width: this.refs.wrapper.clientWidth
+    });
   }
 
 	render() {
-    return null;
+    let {patch, width, height} = this.state;
+
+    let {nodes, connections} = patch.patchData;
+
+    return (
+      <div id="svg-wrapper" ref="wrapper">
+        <svg width={width} height={height}>
+          {nodes.map(({id, proto, args, layout, data}) => 
+            <g key={id}>
+              <rect x={layout.x} y={layout.y} height={20} width={50} style={{stroke: '#000', fill: '#fff'}}/>
+              <text x={layout.x} y={layout.y}>{proto} {args.join(' ')}</text>
+            </g>
+          )}
+          {connections.map(({source, sink}, i) => 
+            <path key={i} stroke="black" 
+              strokeWidth={2}
+              d={`M${nodes[source.id].layout.x} ${nodes[source.id].layout.y}
+                  L${nodes[sink.id].layout.x} ${nodes[sink.id].layout.y}`}/>
+          )}
+        </svg>
+      </div>
+    );
 	}
 }
