@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 
+import Pd from 'webpd';
 import {parsePatch} from './parse';
 import PdPatch from './PdPatch';
 
@@ -25,7 +26,10 @@ export default class App extends Component {
   }
 
   newPatch() {
-  
+    this.setState({
+      // TODO: Need to actually figure out order of these bois
+      patch: `#N canvas 359 25 ${window.innerHeight} ${window.innerWidth} 10`
+    });
   }
 
   render() {
@@ -33,16 +37,19 @@ export default class App extends Component {
     return (
       <div id="component">
         <nav>
-          <input type="file" id="upload" 
-            className="nav-button"
-            onClick={this.upload} />
+
         </nav>
         <main>
           {patch ? (
             <PdPatch patch={patch} />
           ) : (
-            <button id="new"
-              onClick={this.newPatch}>new patch</button>
+            <div id="start-buttons">
+              <input type="file" id="upload"
+                className="nav-button"
+                onChange={this.upload} />
+              <button id="new"
+                onClick={this.newPatch}>new patch</button>
+            </div>
           )}
         </main>
       </div>

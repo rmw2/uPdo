@@ -11,11 +11,21 @@ function sanityTestPatch() {
   osc.i(0).message([330])                       // Send frequency of [osc~] to 330Hz
 }
 
+function loadPatchString(patchString) {
+  let patch = Pd.loadPatch(patchString);            // We assume this patch has an [outlet~] object
+  let gain = Pd.getAudio().context.createGain(); // We create a web audio API GainNode
+  patch.o(0).getOutNode().connect(gain);         // Connect the output 0 of the patch to our audio node
+}
+
 export default class PdPatch extends Component {
 	constructor(props) {
     super(props);
-    sanityTestPatch();
+    console.log(420)
 	}
+
+  componentDidMount() {
+    Pd.start();
+  }
 
 	render() {
     return null;
