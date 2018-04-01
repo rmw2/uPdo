@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import Draggable from 'react-draggable'
 import Pd from 'webpd';
-import {parsePatch} from './parse';
 
 import './patch.css';
 
@@ -15,11 +14,8 @@ function sanityTestPatch() {
   osc.i(0).message([330])                       // Send frequency of [osc~] to 330Hz
 }
 
-let DAC_INDEX = 0;
-let OSC_INDEX = 1;
-
 const NODE_HEIGHT = 20;
-const NODE_WIDTH = 50;
+const NODE_WIDTH = 100;
 
 export default class PdPatch extends Component {
 	constructor(props) {
@@ -27,24 +23,43 @@ export default class PdPatch extends Component {
 
     this.state = {
       patch: Pd.loadPatch(props.patchString),
+      preObject: null,
+      newCord: null,
       width: null,
-      height: null,
-      oscOn: true
+      height: null,      
     };
 
     this.nextId = this.state.patch.objects.length;
 
-    this.props.toggleAudio();
-    this.disconnect = this.disconnect.bind(this);
     this.delete = this.delete.bind(this);
+    this.disconnect = this.disconnect.bind(this);
 
+    this.createPreObject = this.createPreObject.bind(this);
+    this.createObject = this.createObject.bind(this);
+    this.startPatchCord = this.startPatchCord.bind(this);
+    this.finishPatchCord = this.finishPatchCord.bind(this);
+    // Turn it on
+    props.toggleAudio();
 	}
 
-  // Horrendously O(n^2)
+  componentDidMount() {
+    // Set svg size
+    this.setState({
+      height: this.refs.wrapper.clientHeight,
+      width: this.refs.wrapper.clientWidth
+    });
+
+    this.refs.svg.addEventListener('dblclick', this.createPreObject);
+  }
+
+  componentWillUnmount() {
+    this.refs.svg.removeEventListener('dblclick', this.createPreObject);
+  }
+
+  // Horrendous
   getNodeWithId(id) {
     for (let node of this.state.patch.patchData.nodes) {
       if (node.id === id) {
-        console.log(node);
         return node;
       }
     }
@@ -58,6 +73,8 @@ export default class PdPatch extends Component {
         return nodes.splice(i, 1);
       }
     }
+
+    return null;
   }
 
   getObjectWithId(id) {
@@ -75,14 +92,8 @@ export default class PdPatch extends Component {
         return objects.splice(i, 1);
       }
     }
-  }
 
-  componentDidMount() {
-    // Set svg size
-    this.setState({
-      height: this.refs.wrapper.clientHeight,
-      width: this.refs.wrapper.clientWidth
-    });
+    return null;
   }
 
   /**
@@ -104,21 +115,22 @@ export default class PdPatch extends Component {
     this.forceUpdate();
   }
 
-  /**
-   *
-   */
-  connect(from, to) {
-
+  startPatchCord(fromNodeId, fromPort, x, y) {
+    this.setState({newCord: {fromNodeId, fromPort, x, y}});
   }
 
-  /**
-   * Update the arguments for the node with the given id
-   */
-  updateObject(id, proto, args) {
-    let {patch} = this.state;
+  finishPatchCord(toNodeId, toPort) {
+    let {fromNodeId, fromPort} = this.state.newCord;
+    let outlet = this.getObjectWithId(fromNodeId).o(fromPort);
+    let inlet = this.getObjectWithId(toNodeId).i(toPort);
 
-    // TODO: Delete the object, create a new one, connect it
-    console.log(patch.objects[id]);
+    outlet.connect(inlet);
+    this.state.patch.patchData.connections.push({
+      source: {id: fromNodeId, port: fromPort},
+      sink: {id: toNodeId, port: toPort}
+    })
+
+    this.setState({newCord: null});
   }
 
   disconnectAll(nodeIdx) {
@@ -131,6 +143,38 @@ export default class PdPatch extends Component {
     }
   }
 
+  createPreObject(evt) {
+    console.log(evt);
+    this.setState({preObject: {x: evt.offsetX, y: evt.offsetY}})
+  }
+
+  createObject(proto, args, layout) {
+    let {patch} = this.state;
+    let obj = patch.createObject(proto, args.map(a => isNaN(a) ? a : parseFloat(a)));
+    obj.id = this.nextId;
+    patch.patchData.nodes.push({proto, args, layout, id: this.nextId});
+    // Increment the id
+    this.nextId++;
+    this.setState({preObject: null});
+  }
+
+  /**
+   * Update the arguments/prototype for the node with the given id
+   */
+  updateObject(id, proto, args) {
+    let {patch} = this.state;
+
+    // TODO: Delete the object, create a new one, connect it
+    console.log(patch.objects[id]);
+  }
+
+  moveObject(id, x, y) {
+    let {patch} = this.state;
+
+    this.getNodeWithId(id).layout = {x, y};
+    this.forceUpdate();
+  }
+
   /**
    * Delete a node from existence
    */
@@ -141,54 +185,89 @@ export default class PdPatch extends Component {
     this.getObjectWithId(nodeId).stop();
     this.deleteObjectWithId(nodeId);
     this.deleteNodeWithId(nodeId);
-  }
-
-  moveObject(id, x, y) {
-    let {patch} = this.state;
-
-    this.getNodeWithId(id).layout = {x, y};
     this.forceUpdate();
   }
 
-  createObject(proto, args) {
-    let {patch} = this.state;
-    let obj = patch.createObject(proto, args);
-    patch.patchData.nodes.append(obj);
-    this.forceUpdate();
-  }
 
 	render() {
-    let {patch, width, height, oscOn} = this.state;
+    let {patch, width, height, oscOn, preObject, newCord} = this.state;
     let {nodes, connections} = patch.patchData;
 
     return (
       <div id="svg-wrapper" ref="wrapper">
-        <button onClick={this.toggleOsc}>{oscOn ? 'oscOff' : 'oscOn'}</button>
-        <input type="range" onChange={(val) => this.setFrequency(val)} step="1" min="0" max="1000" defaultValue="420"></input>
-
-        <svg width={width} height={height}>
-          {nodes.map(({id, ...rest}) =>
-            <PdNode key={id} {...rest}
-              move={(x, y) => this.moveObject(id, x, y)}
-              inlets={this.getObjectWithId(id).inlets}
-              outlets={this.getObjectWithId(id).outlets}
-              updateObject={(proto, args) => this.updateObject(id, proto, args)}
-              delete={() => this.delete(id)}
-            />
-          )}
+        <svg width={width} height={height} ref="svg">
           {connections.map(({source, sink}, idx) =>
             <PdPatchCord key={`${source.id}.${source.port}-${sink.id}.${sink.port}`}
-              outlet={source.port}
-              inlet={sink.port}
+              outletOffset={source.port / (this.getObjectWithId(source.id).outlets.length - 1)}
+              inletOffset={sink.port / (this.getObjectWithId(sink.id).inlets.length - 1)}
               from={this.getNodeWithId(source.id)}
               to={this.getNodeWithId(sink.id)}
               idx={idx}
               disconnect={this.disconnect} />
           )}
+          {nodes.map(({id, ...rest}) =>
+            <PdNode key={id} id={id} {...rest}
+              isDrawingPatchCord={newCord !== null}
+              startPatchCord={this.startPatchCord}
+              finishPatchCord={this.finishPatchCord}
+              move={(x, y) => this.moveObject(id, x, y)}
+              inlets={this.getObjectWithId(id).inlets}
+              outlets={this.getObjectWithId(id).outlets}
+              updateObject={(proto, args) => this.updateObject(id, proto, args)}
+              delete={() => this.delete(id)} />
+          )}
+          {preObject &&
+            <PreObject x={preObject.x} y={preObject.y} 
+              createObject={this.createObject} />
+          }
         </svg>
       </div>
     );
 	}
+}
+
+class PreObject extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      nodeText: ''
+    };
+
+    this.updateText = this.updateText.bind(this);
+    this.submitText = this.submitText.bind(this);
+  }
+
+  updateText(evt) {
+    this.setState({nodeText: evt.target.value});
+  }
+
+  submitText(evt) {
+    let {x,y} = this.props;
+    let [proto, ...args] = this.state.nodeText.split(' ');
+    this.props.createObject(proto, args, {x,y});
+    window.removeEventListener('click', this.submitText);
+  }
+
+  render() {
+    let {x,y} = this.props;
+    let {nodeText} = this.state;
+
+    return (
+      <g className="pd-preobject">
+        <rect className="pd-preobject-rect"
+          fill="transparent"
+          x={x} y={y} height={NODE_HEIGHT} width={NODE_WIDTH} />
+        <foreignObject x={x} y={y}>
+          <input className="pd-node-input"
+            style={{width: NODE_WIDTH}}
+            onChange={this.updateText}
+            onKeyUp={(e) => (e.key === 'Enter') && this.submitText()}
+            value={nodeText} />
+        </foreignObject>
+      </g>
+    );
+  }
 }
 
 /**
@@ -208,11 +287,10 @@ class PdNode extends Component {
     this.select = this.select.bind(this);
     this.deselect = this.deselect.bind(this);
     this.edit = this.edit.bind(this);
-    this.drag = this.drag.bind(this);
     this.delete = this.delete.bind(this);
 
     this.updateText = this.updateText.bind(this);
-    this.handleSubmit = this.handleSubmit.bind(this);
+    this.submitText = this.submitText.bind(this);
   }
 
   componentWillReceiveProps(nextProps) {
@@ -222,9 +300,7 @@ class PdNode extends Component {
   }
 
   select(evt) {
-    console.log('selecting');
     this.setState({selected: true});
-
     window.addEventListener('click', this.deselect);
     window.addEventListener('keyup', this.delete);
     evt.stopPropagation();
@@ -235,24 +311,29 @@ class PdNode extends Component {
     this.cleanUp();
   }
 
-  edit() {
-    console.log('editing');
+  edit(evt) {
     this.setState({editing: true});
-  }
-
-  drag() {
-
+    window.addEventListener('click', this.submitText);
+    evt.stopPropagation();
   }
 
   updateText(evt) {
     this.setState({nodeText: evt.target.value});
   }
 
+  submitText(evt) {
+    let [proto, ...args] = this.state.nodeText.split();
+    this.props.updateObject(proto, args)
+    this.setState({editing: false});
+    window.removeEventListener('click', this.submitText);
+  }
+
   delete(evt) {
     if (evt.key == 'Backspace') {
       this.props.delete();
+      this.setState({selected: false, editing: false})
+      this.cleanUp();
     }
-    this.cleanUp();
   }
 
   componentWillUnmount() {
@@ -264,40 +345,25 @@ class PdNode extends Component {
     window.removeEventListener('keyup', this.delete);
   }
 
-
-  handleSubmit(evt) {
-    if (evt.key == 'Enter') {
-      let [proto, ...args] = this.state.nodeText.split();
-      this.props.updateObject(proto, args)
-      this.setState({editing: false});
-    }
-  }
-
   render() {
     let {nodeText, editing, selected} = this.state;
-    let {inlets, outlets} = this.props;
+    let {inlets, outlets, isDrawingPatchCord, startPatchCord, finishPatchCord, id} = this.props;
     let {x, y} = this.props.layout;
-
-    console.log(inlets, outlets);
 
     let padding = 5;
     let height = NODE_HEIGHT;
-    let width = nodeText.length * 12;
+    let width = NODE_WIDTH;
 
-    // TODO:
-    // Switch here on proto if we need to render a different type of object
+    let inletX = inlets.map((_,i) => 
+      x + width * (inlets.length > 1 ? i/(inlets.length - 1) : 0));
+    let outletX = outlets.map((_,i) => 
+      x + width * (outlets.length > 1 ? i/(outlets.length - 1) : 0));
 
     return (
       <Draggable disabled={editing}
         position={{x:0, y:0}}
         onStop={(_, data) => this.props.move(x + data.x, y + data.y)}>
         <g className="pd-node">
-          {inlets.map((_,i) =>
-            <circle className="pd-portlet"
-              cx={x + width * (i/(inlets.length - 1))}
-              cy={y}
-              r={3} />
-          )}
           <rect x={x} y={y}
             className={`pd-node-rect ${selected ? 'selected' : ''}`}
             fill="transparent"
@@ -312,7 +378,7 @@ class PdNode extends Component {
               <input className="pd-node-input"
                 style={{width}}
                 onChange={this.updateText}
-                onKeyUp={this.handleSubmit}
+                onKeyUp={(e) => (e.key === 'Enter') && this.submitText()}
                 value={nodeText} />
             </foreignObject>
           ) : (
@@ -320,11 +386,19 @@ class PdNode extends Component {
               onDoubleClick={this.edit} onClick={this.select}
               x={x + padding} y={y + height - padding}>{nodeText}</text>
           )}
-          {outlets.map((_,i) =>
-            <circle className="pd-portlet"
-              cx={x + width * (i/(outlets.length-1))}
-              cy={y + height}
+          {inletX.map((x, idx) =>
+            <circle key={idx} className="pd-portlet"
+              onClick={() => isDrawingPatchCord && finishPatchCord(id, idx)}
+              cx={x}
+              cy={y}
               r={3} />
+          )}
+          {outletX.map((x, idx) =>
+            <circle key={idx} className="pd-portlet"
+              cx={x}
+              cy={y + height}
+              r={3}
+              onClick={() => startPatchCord(id, idx, x, y + height)} />
           )}
         </g>
       </Draggable>
@@ -381,12 +455,13 @@ class PdPatchCord extends Component {
 
   render() {
     let {selected} = this.state;
-    let {from, to, inlet, outlet} = this.props;
+    let {from, to, inletOffset, outletOffset} = this.props;
     let cordWidth = selected ? 4 : 2;
 
-    let fromX = from.layout.x + (outlet / 2) * NODE_WIDTH;
+    // Calculate positions
+    let fromX = from.layout.x + (outletOffset || 0) * NODE_WIDTH;
     let fromY = from.layout.y + NODE_HEIGHT;
-    let toX = to.layout.x + (inlet / 2) * NODE_WIDTH;
+    let toX = to.layout.x + (inletOffset || 0) * NODE_WIDTH;
     let toY = to.layout.y;
 
     return (

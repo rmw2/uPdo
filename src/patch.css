@@ -9,14 +9,20 @@ input.pd-node-input {
 circle.pd-portlet {
 	stroke: #000;
 	z-index: 10;
+	cursor: pointer;
 }
 
 circle.pd-portlet:hover {
-	stroke: #aaa;
+	fill: #aaa;
 }
 
 text.pd-node-text {
 
+}
+
+rect.pd-preobject-rect {
+	stroke-dasharray: 2 2 2;
+	stroke: black;
 }
 
 rect.pd-node-rect {
