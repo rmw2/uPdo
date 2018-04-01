@@ -47,7 +47,8 @@ export default class App extends Component {
     return (
       <div id="component">
         <nav>
-          <div className="nav-box" id="logo">u<span id="pd">Pd</span>o</div>
+          <div className="nav-box" id="logo"
+            onClick={() => window.location.replace('/')}>u<span id="pd">Pd</span>o</div>
           <div className="nav-box" id="nav-buttons">
             <button disabled={patch === null} 
               onClick={this.toggleAudio} 

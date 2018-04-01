@@ -17,7 +17,7 @@ circle.pd-portlet:hover {
 }
 
 text.pd-node-text {
-
+	cursor: pointer;
 }
 
 rect.pd-preobject-rect {
@@ -26,14 +26,21 @@ rect.pd-preobject-rect {
 }
 
 rect.pd-node-rect {
-
+	cursor: pointer;
 }
 
 rect.pd-node-rect.selected {
-	fill: #aaa;
 	stroke-width: 3;
 }
 
 path.pd-patchcord {
 	cursor: pointer;
+	stroke-linecap: round;
+	box-shadow: 1px 1px 1px #aaa;
 }
+
+path.pd-patchcord-dsp {
+	stroke-dasharray: 5,1;
+	stroke: #0a0;
+}
+

@@ -36,6 +36,7 @@ main {
     font-size: 18pt;
     font-weight: bold;
     font-family: courier;
+    cursor: pointer;
 }
 
 #pd {

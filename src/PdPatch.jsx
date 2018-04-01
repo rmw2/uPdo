@@ -59,7 +59,7 @@ export default class PdPatch extends Component {
   // Horrendous
   getNodeWithId(id) {
     for (let node of this.state.patch.patchData.nodes) {
-      if (node.id === id) {
+      if (node && node.id === id) {
         return node;
       }
     }
@@ -69,7 +69,7 @@ export default class PdPatch extends Component {
   deleteNodeWithId(id) {
     let {nodes} = this.state.patch.patchData;
     for (let i = 0; i < nodes.length; i++) {
-      if (nodes[i].id === id) {
+      if (nodes[i] && nodes[i].id === id) {
         return nodes.splice(i, 1);
       }
     }
@@ -79,7 +79,7 @@ export default class PdPatch extends Component {
 
   getObjectWithId(id) {
     for (let obj of this.state.patch.objects) {
-      if (obj.id === id) {
+      if (obj && obj.id === id) {
         return obj;
       }
     }
@@ -88,7 +88,7 @@ export default class PdPatch extends Component {
   deleteObjectWithId(id) {
     let {objects} = this.state.patch;
     for (let i = 0; i < objects.length; i++) {
-      if (objects[i].id === id) {
+      if (objects[i] && objects[i].id === id) {
         return objects.splice(i, 1);
       }
     }
@@ -111,7 +111,6 @@ export default class PdPatch extends Component {
 
     // Remove connection from the connections list
     patch.patchData.connections.splice(connectionIdx, 1);
-    console.log(patch.patchData);
     this.forceUpdate();
   }
 
@@ -144,18 +143,28 @@ export default class PdPatch extends Component {
   }
 
   createPreObject(evt) {
-    console.log(evt);
     this.setState({preObject: {x: evt.offsetX, y: evt.offsetY}})
   }
 
   createObject(proto, args, layout) {
     let {patch} = this.state;
-    let obj = patch.createObject(proto, args.map(a => isNaN(a) ? a : parseFloat(a)));
+    let obj;
+
+    console.log(patch.objects);
+    try {
+      obj = patch.createObject(proto, args.map(a => isNaN(a) ? a : parseFloat(a)));
+    } catch (e) {
+      return null;
+    }
+    console.log(patch.objects);
+
     obj.id = this.nextId;
     patch.patchData.nodes.push({proto, args, layout, id: this.nextId});
     // Increment the id
     this.nextId++;
     this.setState({preObject: null});
+
+    return obj;
   }
 
   /**
@@ -192,6 +201,7 @@ export default class PdPatch extends Component {
 	render() {
     let {patch, width, height, oscOn, preObject, newCord} = this.state;
     let {nodes, connections} = patch.patchData;
+    console.log('rendering');
 
     return (
       <div id="svg-wrapper" ref="wrapper">
@@ -458,11 +468,21 @@ class PdPatchCord extends Component {
     let {from, to, inletOffset, outletOffset} = this.props;
     let cordWidth = selected ? 4 : 2;
 
+    const CURVE_THRESHOLD = 50;
+
     // Calculate positions
     let fromX = from.layout.x + (outletOffset || 0) * NODE_WIDTH;
     let fromY = from.layout.y + NODE_HEIGHT;
     let toX = to.layout.x + (inletOffset || 0) * NODE_WIDTH;
     let toY = to.layout.y;
+
+    let midX = (fromX + toX)/2;
+    let midY = (fromY + toY)/2;
+
+    // Use straight path if within threshold, otherwise Quadradic bezier
+    let d = Math.abs(toX - fromX) > CURVE_THRESHOLD
+      ? `M${fromX} ${fromY} Q${fromX} ${midY}, ${midX} ${midY} T${toX} ${toY}`
+      : `M${fromX} ${fromY} L${toX} ${toY}`;
 
     return (
       <path className="pd-patchcord"
@@ -470,7 +490,7 @@ class PdPatchCord extends Component {
         fill="transparent"
         strokeWidth={cordWidth}
         onClick={this.select}
-        d={`M${fromX} ${fromY} L${toX} ${toY}`} />
+        d={d} />
     );
   }
 }
