@@ -32,12 +32,50 @@ export default class PdPatch extends Component {
       oscOn: true
     };
 
+    this.nextId = this.state.patch.objects.length;
+
     this.props.toggleAudio();
-    console.log(this.state.patch);
-    this.toggleOsc = this.toggleOsc.bind(this);
-    this.setFrequency = this.setFrequency.bind(this);
     this.disconnect = this.disconnect.bind(this);
+    this.delete = this.delete.bind(this);
+
 	}
+
+  // Horrendously O(n^2)
+  getNodeWithId(id) {
+    for (let node of this.state.patch.patchData.nodes) {
+      if (node.id === id) {
+        console.log(node);
+        return node;
+      }
+    }
+    console.log("BAAAAAAAAAAAAAAD");
+  }
+
+  deleteNodeWithId(id) {
+    let {nodes} = this.state.patch.patchData;
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].id === id) {
+        return nodes.splice(i, 1);
+      }
+    }
+  }
+
+  getObjectWithId(id) {
+    for (let obj of this.state.patch.objects) {
+      if (obj.id === id) {
+        return obj;
+      }
+    }
+  }
+
+  deleteObjectWithId(id) {
+    let {objects} = this.state.patch;
+    for (let i = 0; i < objects.length; i++) {
+      if (objects[i].id === id) {
+        return objects.splice(i, 1);
+      }
+    }
+  }
 
   componentDidMount() {
     // Set svg size
@@ -48,25 +86,20 @@ export default class PdPatch extends Component {
   }
 
   /**
-   * Remove patch cord i from the render
+   * Remove patch cord idx from the render and objects so it stops DSP boi
    */
-  disconnect(idx, o, i) {
+  disconnect(connectionIdx) {
     let {patch} = this.state;
 
     // Find the connection with this index
-    let {source, sink} = patch.patchData.connections[idx];
-
-    console.log(patch.patchData);
-    console.log(patch.objects[source.id]);
-    console.log(patch.patchData.nodes[source.id]);
-
-    let outlet = patch.objects[source.id].o(o);
-    let inlet = patch.objects[sink.id].i(i);
+    let {source, sink} = patch.patchData.connections[connectionIdx];
+    let outlet = this.getObjectWithId(source.id).o(source.port);
+    let inlet = this.getObjectWithId(sink.id).i(sink.port);
     // Remove connection from the object
     outlet.disconnect(inlet);
 
     // Remove connection from the connections list
-    patch.patchData.connections.splice(idx, 1);
+    patch.patchData.connections.splice(connectionIdx, 1);
     console.log(patch.patchData);
     this.forceUpdate();
   }
@@ -77,33 +110,31 @@ export default class PdPatch extends Component {
   updateObject(id, proto, args) {
     let {patch} = this.state;
 
-    // Delete the object, create a new one, connect it
-    patch.objects[id];
+    // TODO: Delete the object, create a new one, connect it
+    console.log(patch.objects[id]);
   }
 
-  // HACKY NONSENSE FOR TESTING
-  toggleOsc() {
-    let outputPort = this.state.patch.objects[OSC_INDEX].o(0);
-    let inputPortL = this.state.patch.objects[DAC_INDEX].i(0);
-    let inputPortR = this.state.patch.objects[DAC_INDEX].i(1);
+  disconnectAll(nodeIdx) {
+    let {connections} = this.state.patch.patchData;
 
-    if (this.state.oscOn) {
-      this.setState({oscOn: false});
-      this.state.patch.patchData.nodes[OSC_INDEX].layout.x = 420;
-      outputPort.disconnect(inputPortL);
-      outputPort.disconnect(inputPortR);
-    } else {
-      this.setState({oscOn: true});
-      this.state.patch.patchData.nodes[OSC_INDEX].layout.x = 170;
-      outputPort.connect(inputPortL);
-      outputPort.connect(inputPortR);
+    for (let i = connections.length-1; i >= 0; i--) {
+      if (connections[i].source.id === nodeIdx || connections[i].sink.id === nodeIdx) {
+        this.disconnect(i);
+      }
     }
   }
-  // MORE HACKY NONSENSE FOR TESTING
-  setFrequency(event) {
-    let freq = parseFloat(event.target.value);
-    // not sure why not passing value so just flipping cus it's a proof of concept not a feature anwyay
-    this.state.patch.objects[OSC_INDEX].i(0).message([freq]);
+
+  /**
+   * Delete a node from existence
+   */
+  delete(nodeId) {
+    let {patch} = this.state;
+
+    this.disconnectAll(nodeId);
+    this.getObjectWithId(nodeId).stop();
+    this.deleteObjectWithId(nodeId);
+    this.deleteNodeWithId(nodeId);
+    this.forceUpdate();
   }
 
 	render() {
@@ -116,16 +147,17 @@ export default class PdPatch extends Component {
         <input type="range" onChange={(val) => this.setFrequency(val)} step="1" min="0" max="1000" defaultValue="420"></input>
 
         <svg width={width} height={height}>
-          {nodes.map((nodeProps, idx) =>
-            <PdNode key={nodeProps.id} {...nodeProps} 
-              updateObject={(proto, args) => this.updateObject(idx, proto, args)} />
+          {nodes.map(({id, ...rest}) =>
+            <PdNode key={id} {...rest}
+              updateObject={(proto, args) => this.updateObject(id, proto, args)}
+              delete={() => this.delete(id)}/>
           )}
           {connections.map(({source, sink}, idx) =>
             <PdPatchCord key={`${source.id}${source.port}-${sink.id}${sink.port}`}
               outlet={source.port}
               inlet={sink.port}
-              from={nodes[source.id]} 
-              to={nodes[sink.id]}
+              from={this.getNodeWithId(source.id)}
+              to={this.getNodeWithId(sink.id)}
               idx={idx}
               disconnect={this.disconnect} />
           )}
@@ -137,7 +169,7 @@ export default class PdPatch extends Component {
 
 /**
  * Class/component for representing a Pd Node
- * 
+ *
  */
 class PdNode extends Component {
   constructor(props) {
@@ -150,8 +182,10 @@ class PdNode extends Component {
     };
 
     this.select = this.select.bind(this);
+    this.deselect = this.deselect.bind(this);
     this.edit = this.edit.bind(this);
     this.drag = this.drag.bind(this);
+    this.delete = this.delete.bind(this);
 
     this.updateText = this.updateText.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
@@ -163,9 +197,18 @@ class PdNode extends Component {
     });
   }
 
-  select() {
+  select(evt) {
     console.log('selecting');
     this.setState({selected: true});
+
+    window.addEventListener('click', this.deselect);
+    window.addEventListener('keyup', this.delete);
+    evt.stopPropagation();
+  }
+
+  deselect(evt) {
+    this.setState({selected: false});
+    this.cleanUp();
   }
 
   edit() {
@@ -180,6 +223,23 @@ class PdNode extends Component {
   updateText(evt) {
     this.setState({nodeText: evt.target.value});
   }
+
+  delete(evt) {
+    if (evt.key == 'Backspace') {
+      this.props.delete();
+    }
+    this.cleanUp();
+  }
+
+  componentWillUnmount() {
+    this.cleanUp();
+  }
+
+  cleanUp() {
+    window.removeEventListener('click', this.deselect);
+    window.removeEventListener('keyup', this.delete);
+  }
+
 
   handleSubmit(evt) {
     if (evt.key == 'Enter') {
@@ -203,19 +263,20 @@ class PdNode extends Component {
     return (
       <g className="pd-node">
         <rect x={x} y={y}
-          fill={selected ? '#' : 'transparent'}
+          className={`pd-node-rect ${selected ? 'selected' : ''}`}
+          fill="transparent"
           onDragStart={() => console.log('drag started')}
           onDragEnd={() => console.log('drag ended')}
           onClick={this.select}
           onDoubleClick={this.edit}
-          height={height} width={width} 
+          height={height} width={width}
           style={{stroke: '#000', fill: '#fff'}} />
         {editing ? (
           <foreignObject x={x} y={y}>
             <input className="pd-node-input"
               style={{width}}
-              onChange={this.updateText} 
-              onKeyUp={this.handleSubmit} 
+              onChange={this.updateText}
+              onKeyUp={this.handleSubmit}
               value={nodeText} />
           </foreignObject>
         ) : (
@@ -247,7 +308,7 @@ class PdPatchCord extends Component {
    */
   select(evt) {
     this.setState({selected: true});
-    
+
     window.addEventListener('click', this.deselect);
     window.addEventListener('keyup', this.delete);
     evt.stopPropagation();
@@ -259,9 +320,9 @@ class PdPatchCord extends Component {
   }
 
   delete(evt) {
-    let {idx, outlet, inlet} = this.props;
+    let {idx} = this.props;
     if (evt.key == 'Backspace') {
-      this.props.disconnect(idx, outlet, inlet);
+      this.props.disconnect(idx);
     }
 
     this.cleanUp();
@@ -296,4 +357,3 @@ class PdPatchCord extends Component {
     );
   }
 }
-
