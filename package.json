@@ -6,6 +6,7 @@
     "pd-fileutils.parser": "^0.3.4",
     "react": "^16.3.0",
     "react-dom": "^16.3.0",
+    "react-draggable": "^3.0.5",
     "react-scripts": "1.1.1",
     "webpd": "http://github.com/sebpiq/WebPd.git"
   },

@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import Draggable from 'react-draggable'
 import Pd from 'webpd';
 import {parsePatch} from './parse';
 
@@ -16,7 +17,6 @@ function sanityTestPatch() {
 
 let DAC_INDEX = 0;
 let OSC_INDEX = 1;
-
 
 const NODE_HEIGHT = 20;
 const NODE_WIDTH = 50;
@@ -105,6 +105,13 @@ export default class PdPatch extends Component {
   }
 
   /**
+   *
+   */
+  connect(from, to) {
+
+  }
+
+  /**
    * Update the arguments for the node with the given id
    */
   updateObject(id, proto, args) {
@@ -134,6 +141,19 @@ export default class PdPatch extends Component {
     this.getObjectWithId(nodeId).stop();
     this.deleteObjectWithId(nodeId);
     this.deleteNodeWithId(nodeId);
+  }
+
+  moveObject(id, x, y) {
+    let {patch} = this.state;
+
+    this.getNodeWithId(id).layout = {x, y};
+    this.forceUpdate();
+  }
+
+  createObject(proto, args) {
+    let {patch} = this.state;
+    let obj = patch.createObject(proto, args);
+    patch.patchData.nodes.append(obj);
     this.forceUpdate();
   }
 
@@ -149,11 +169,15 @@ export default class PdPatch extends Component {
         <svg width={width} height={height}>
           {nodes.map(({id, ...rest}) =>
             <PdNode key={id} {...rest}
+              move={(x, y) => this.moveObject(id, x, y)}
+              inlets={this.getObjectWithId(id).inlets}
+              outlets={this.getObjectWithId(id).outlets}
               updateObject={(proto, args) => this.updateObject(id, proto, args)}
-              delete={() => this.delete(id)}/>
+              delete={() => this.delete(id)}
+            />
           )}
           {connections.map(({source, sink}, idx) =>
-            <PdPatchCord key={`${source.id}${source.port}-${sink.id}${sink.port}`}
+            <PdPatchCord key={`${source.id}.${source.port}-${sink.id}.${sink.port}`}
               outlet={source.port}
               inlet={sink.port}
               from={this.getNodeWithId(source.id)}
@@ -251,7 +275,10 @@ class PdNode extends Component {
 
   render() {
     let {nodeText, editing, selected} = this.state;
+    let {inlets, outlets} = this.props;
     let {x, y} = this.props.layout;
+
+    console.log(inlets, outlets);
 
     let padding = 5;
     let height = NODE_HEIGHT;
@@ -261,30 +288,46 @@ class PdNode extends Component {
     // Switch here on proto if we need to render a different type of object
 
     return (
-      <g className="pd-node">
-        <rect x={x} y={y}
-          className={`pd-node-rect ${selected ? 'selected' : ''}`}
-          fill="transparent"
-          onDragStart={() => console.log('drag started')}
-          onDragEnd={() => console.log('drag ended')}
-          onClick={this.select}
-          onDoubleClick={this.edit}
-          height={height} width={width}
-          style={{stroke: '#000', fill: '#fff'}} />
-        {editing ? (
-          <foreignObject x={x} y={y}>
-            <input className="pd-node-input"
-              style={{width}}
-              onChange={this.updateText}
-              onKeyUp={this.handleSubmit}
-              value={nodeText} />
-          </foreignObject>
-        ) : (
-          <text className="pd-node-text"
-            onDoubleClick={this.edit} onClick={this.select}
-            x={x + padding} y={y + height - padding}>{nodeText}</text>
-        )}
-      </g>
+      <Draggable disabled={editing}
+        position={{x:0, y:0}}
+        onStop={(_, data) => this.props.move(x + data.x, y + data.y)}>
+        <g className="pd-node">
+          {inlets.map((_,i) =>
+            <circle className="pd-portlet"
+              cx={x + width * (i/(inlets.length - 1))}
+              cy={y}
+              r={3} />
+          )}
+          <rect x={x} y={y}
+            className={`pd-node-rect ${selected ? 'selected' : ''}`}
+            fill="transparent"
+            onDragStart={this.drag}
+            onDragEnd={this.move}
+            onClick={this.select}
+            onDoubleClick={this.edit}
+            height={height} width={width}
+            style={{stroke: '#000', fill: '#fff'}} />
+          {editing ? (
+            <foreignObject x={x} y={y}>
+              <input className="pd-node-input"
+                style={{width}}
+                onChange={this.updateText}
+                onKeyUp={this.handleSubmit}
+                value={nodeText} />
+            </foreignObject>
+          ) : (
+            <text className="pd-node-text"
+              onDoubleClick={this.edit} onClick={this.select}
+              x={x + padding} y={y + height - padding}>{nodeText}</text>
+          )}
+          {outlets.map((_,i) =>
+            <circle className="pd-portlet"
+              cx={x + width * (i/(outlets.length-1))}
+              cy={y + height}
+              r={3} />
+          )}
+        </g>
+      </Draggable>
     );
   }
 }
@@ -308,7 +351,6 @@ class PdPatchCord extends Component {
    */
   select(evt) {
     this.setState({selected: true});
-
     window.addEventListener('click', this.deselect);
     window.addEventListener('keyup', this.delete);
     evt.stopPropagation();

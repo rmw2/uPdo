@@ -1,15 +1,33 @@
 
 
-.pd-node-input {
+input.pd-node-input {
 	outline: none;
 	border: none;
 	font-size: 1rem;
 }
 
-.pd-node-text {
+circle.pd-portlet {
+	stroke: #000;
+	z-index: 10;
+}
+
+circle.pd-portlet:hover {
+	stroke: #aaa;
+}
+
+text.pd-node-text {
 
 }
 
-.pd-patchcord {
+rect.pd-node-rect {
+
+}
+
+rect.pd-node-rect.selected {
+	fill: #aaa;
+	stroke-width: 3;
+}
+
+path.pd-patchcord {
 	cursor: pointer;
 }
