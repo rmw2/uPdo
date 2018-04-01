@@ -33,9 +33,6 @@ export default class PdPatch extends Component {
     };
 
     this.props.toggleAudio();
-    console.log(this.state.patch);
-    this.toggleOsc = this.toggleOsc.bind(this);
-    this.setFrequency = this.setFrequency.bind(this);
     this.disconnect = this.disconnect.bind(this);
 	}
 
@@ -50,14 +47,14 @@ export default class PdPatch extends Component {
   /**
    * Remove patch cord i from the render
    */
-  disconnect(idx, o, i) {
+  disconnect(idx) {
     let {patch} = this.state;
 
     // Find the connection with this index
     let {source, sink} = patch.patchData.connections[idx];
 
-    let outlet = patch.objects[source.id].o(o);
-    let inlet = patch.objects[sink.id].i(i);
+    let outlet = patch.objects[source.id].o(source.port);
+    let inlet = patch.objects[sink.id].i(sink.port);
     // Remove connection from the object
     outlet.disconnect(inlet);
 
@@ -90,29 +87,11 @@ export default class PdPatch extends Component {
     this.forceUpdate();
   }
 
-  // HACKY NONSENSE FOR TESTING
-  toggleOsc() {
-    let outputPort = this.state.patch.objects[OSC_INDEX].o(0);
-    let inputPortL = this.state.patch.objects[DAC_INDEX].i(0);
-    let inputPortR = this.state.patch.objects[DAC_INDEX].i(1);
-
-    if (this.state.oscOn) {
-      this.setState({oscOn: false});
-      this.state.patch.patchData.nodes[OSC_INDEX].layout.x = 420;
-      outputPort.disconnect(inputPortL);
-      outputPort.disconnect(inputPortR);
-    } else {
-      this.setState({oscOn: true});
-      this.state.patch.patchData.nodes[OSC_INDEX].layout.x = 170;
-      outputPort.connect(inputPortL);
-      outputPort.connect(inputPortR);
-    }
-  }
-  // MORE HACKY NONSENSE FOR TESTING
-  setFrequency(event) {
-    let freq = parseFloat(event.target.value);
-    // not sure why not passing value so just flipping cus it's a proof of concept not a feature anwyay
-    this.state.patch.objects[OSC_INDEX].i(0).message([freq]);
+  createObject(proto, args) {
+    let {patch} = this.state;
+    let obj = patch.createObject(proto, args);
+    patch.patchData.nodes.append(obj);
+    this.forceUpdate();
   }
 
 	render() {
@@ -127,11 +106,13 @@ export default class PdPatch extends Component {
         <svg width={width} height={height}>
           {nodes.map((nodeProps, idx) =>
             <PdNode key={nodeProps.id} {...nodeProps}
-              move={(x, y) => this.moveObject(idx, x, y)} 
+              move={(x, y) => this.moveObject(idx, x, y)}
+              inlets={patch.objects[idx].inlets}
+              outlets={patch.objects[idx].outlets}
               updateObject={(proto, args) => this.updateObject(idx, proto, args)} />
           )}
           {connections.map(({source, sink}, idx) =>
-            <PdPatchCord key={`${source.id}${source.port}-${sink.id}${sink.port}`}
+            <PdPatchCord key={`${source.id}.${source.port}-${sink.id}.${sink.port}`}
               outlet={source.port}
               inlet={sink.port}
               from={nodes[source.id]} 
@@ -201,7 +182,10 @@ class PdNode extends Component {
 
   render() {
     let {nodeText, editing, selected} = this.state;
+    let {inlets, outlets} = this.props;
     let {x, y} = this.props.layout;
+
+    console.log(inlets, outlets);
 
     let padding = 5;
     let height = NODE_HEIGHT;
@@ -215,6 +199,12 @@ class PdNode extends Component {
         position={{x:0, y:0}}
         onStop={(_, data) => this.props.move(x + data.x, y + data.y)}>
         <g className="pd-node">
+          {inlets.map((_,i) => 
+            <circle className="pd-portlet"
+              cx={x + width * (i/(inlets.length - 1))} 
+              cy={y} 
+              r={3} />
+          )}
           <rect x={x} y={y}
             className={`pd-node-rect ${selected ? 'selected' : ''}`}
             fill="transparent"
@@ -236,6 +226,12 @@ class PdNode extends Component {
             <text className="pd-node-text"
               onDoubleClick={this.edit} onClick={this.select}
               x={x + padding} y={y + height - padding}>{nodeText}</text>
+          )}
+          {outlets.map((_,i) => 
+            <circle className="pd-portlet" 
+              cx={x + width * (i/(outlets.length-1))} 
+              cy={y + height} 
+              r={3} />
           )}
         </g>
       </Draggable>

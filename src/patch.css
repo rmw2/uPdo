@@ -6,6 +6,15 @@ input.pd-node-input {
 	font-size: 1rem;
 }
 
+circle.pd-portlet {
+	stroke: #000;
+	z-index: 10;
+}
+
+circle.pd-portlet:hover {
+	stroke: #aaa;
+}
+
 text.pd-node-text {
 
 }
