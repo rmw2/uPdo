@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
-
+import { Provider } from 'redux';
 import Pd from 'webpd';
 import PdPatch from './PdPatch';
+import store from './store';
 
 import './App.css';
 
@@ -45,33 +46,35 @@ export default class App extends Component {
   render() {
     let {patch, playing} = this.state;
     return (
-      <div id="component">
-        <nav>
-          <div className="nav-box" id="logo"
-            onClick={window.reload}>u<span id="pd">Pd</span>o</div>
-          <div className="nav-box" id="nav-buttons">
-            <button disabled={patch === null} 
-              onClick={this.toggleAudio} 
-              className="nav-button">{playing ? 'pause' : 'play'}</button>
-          </div>
-        </nav>
-        <main>
-          {patch ? (
-            <PdPatch patchString={patch} toggleAudio={this.toggleAudio} />
-          ) : (
-            <div id="start-buttons">
-              <label htmlFor="upload"
-                className="load-button">upload patch
-                <input type="file" id="upload"
-                  onChange={this.upload} />
-              </label>
-              <button id="new"
-                className="load-button"
-                onClick={this.newPatch}>new patch</button>
+      <Provider store={store}>
+        <div id="component">
+          <nav>
+            <div className="nav-box" id="logo"
+              onClick={window.reload}>u<span id="pd">Pd</span>o</div>
+            <div className="nav-box" id="nav-buttons">
+              <button disabled={patch === null} 
+                onClick={this.toggleAudio} 
+                className="nav-button">{playing ? 'pause' : 'play'}</button>
             </div>
-          )}
-        </main>
-      </div>
+          </nav>
+          <main>
+            {patch ? (
+              <PdPatch patchString={patch} toggleAudio={this.toggleAudio} />
+            ) : (
+              <div id="start-buttons">
+                <label htmlFor="upload"
+                  className="load-button">upload patch
+                  <input type="file" id="upload"
+                    onChange={this.upload} />
+                </label>
+                <button id="new"
+                  className="load-button"
+                  onClick={this.newPatch}>new patch</button>
+              </div>
+            )}
+          </main>
+        </div>
+      </Provider>
     );
   }
 }

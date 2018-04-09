@@ -37,6 +37,5 @@ import { updo } from './reducers';
 }
 */
 
-export const store = createStore(updo);
-
-
+const store = createStore(updo);
+export default store;
