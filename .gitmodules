@@ -1,0 +1,3 @@
+[submodule "WebPd"]
+	path = WebPd
+	url = https://github.com/rmw2/WebPd.git
